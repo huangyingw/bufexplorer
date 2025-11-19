@@ -549,9 +549,16 @@ function! s:ShouldIgnore(buf)
         return 0
     endif
 
-    " Git-related buffers (包括 .git/index, fugitive:// 等)
-    " 这些 buffer 有 buftype='nofile' 或其他类型，但我们仍然想在列表中看到
-    if l:bufname =~# '^\(fugitive\|gitcommit\)://\|\.git/\(index\|COMMIT_EDITMSG\)'
+    " Git buffer 检测（和 bufexplorer_config.vim 保持一致）
+    " 1. fugitive:// 或 gitcommit:// 开头
+    " 2. 路径包含 .git/index 或 .git/COMMIT_EDITMSG
+    " 3. 路径包含 .git/worktrees/ （worktree 的 index）
+    " 4. bufname 是 'index' 且 buftype 是 'nowrite'
+    let l:fullpath = fnamemodify(l:bufname, ':p')
+    if l:bufname =~# '^\(fugitive\|gitcommit\)://' ||
+     \ l:fullpath =~# '\.git/\(index\|COMMIT_EDITMSG\)' ||
+     \ l:fullpath =~# '\.git/worktrees/' ||
+     \ (l:bufname ==# 'index' && l:buftype ==# 'nowrite')
         return 0
     endif
 
