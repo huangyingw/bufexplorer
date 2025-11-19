@@ -530,18 +530,33 @@ endfunction
 
 " ShouldIgnore {{{2
 function! s:ShouldIgnore(buf)
-    " Ignore temporary buffers with buftype set.
-    if empty(getbufvar(a:buf, "&buftype")) == 0
-        return 1
-    endif
+    let l:buftype = getbufvar(a:buf, "&buftype")
+    let l:bufname = bufname(a:buf)
 
     " Ignore the BufExplorer buffer.
-    if fnamemodify(bufname(a:buf), ":t") == s:name
+    if fnamemodify(l:bufname, ":t") == s:name
         return 1
     endif
 
     " Ignore any buffers in the exclude list.
-    if index(s:MRU_Exclude_List, bufname(a:buf)) >= 0
+    if index(s:MRU_Exclude_List, l:bufname) >= 0
+        return 1
+    endif
+
+    " 特殊处理：不忽略 terminal buffer 和 git buffer
+    " Terminal buffer (Claude Code 等)
+    if l:buftype == 'terminal'
+        return 0
+    endif
+
+    " Git-related buffers (包括 .git/index, fugitive:// 等)
+    " 这些 buffer 有 buftype='nofile' 或其他类型，但我们仍然想在列表中看到
+    if l:bufname =~# '^\(fugitive\|gitcommit\)://\|\.git/\(index\|COMMIT_EDITMSG\)'
+        return 0
+    endif
+
+    " Ignore other temporary buffers with buftype set.
+    if empty(l:buftype) == 0
         return 1
     endif
 
