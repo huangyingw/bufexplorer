@@ -530,8 +530,35 @@ endfunction
 
 " ShouldIgnore {{{2
 function! s:ShouldIgnore(buf)
+    " [PATCHED] 特别处理 terminal 和 git buffer：允许它们进入 MRU
     let l:buftype = getbufvar(a:buf, "&buftype")
     let l:bufname = bufname(a:buf)
+    let l:fullpath = fnamemodify(l:bufname, ':p')
+
+    " 允许 terminal buffer
+    if l:buftype == "terminal"
+        return 0
+    endif
+
+    " 允许 git 相关的 buffer（fugitive, gitcommit, git index 等）
+    " 检测条件：
+    " 1. fugitive:// 或 gitcommit:// 开头的 buffer
+    " 2. 路径包含 .git/index 或 .git/COMMIT_EDITMSG
+    " 3. 路径包含 .git/worktrees/（worktree 的 index）
+    " 4. bufname 是 'index' 且 buftype 是 'nowrite'（fugitive 的 git index）
+    let l:is_git = (l:bufname =~# '^\(fugitive\|gitcommit\)://' ||
+                 \ l:fullpath =~# '\.git/\(index\|COMMIT_EDITMSG\)' ||
+                 \ l:fullpath =~# '\.git/worktrees/' ||
+                 \ (l:bufname ==# 'index' && l:buftype ==# 'nowrite'))
+
+    if l:is_git
+        return 0
+    endif
+
+    " Ignore temporary buffers with buftype set (except terminal and git).
+    if !empty(l:buftype)
+        return 1
+    endif
 
     " Ignore the BufExplorer buffer.
     if fnamemodify(l:bufname, ":t") == s:name
@@ -540,30 +567,6 @@ function! s:ShouldIgnore(buf)
 
     " Ignore any buffers in the exclude list.
     if index(s:MRU_Exclude_List, l:bufname) >= 0
-        return 1
-    endif
-
-    " 特殊处理：不忽略 terminal buffer 和 git buffer
-    " Terminal buffer (Claude Code 等)
-    if l:buftype == 'terminal'
-        return 0
-    endif
-
-    " Git buffer 检测（和 bufexplorer_config.vim 保持一致）
-    " 1. fugitive:// 或 gitcommit:// 开头
-    " 2. 路径包含 .git/index 或 .git/COMMIT_EDITMSG
-    " 3. 路径包含 .git/worktrees/ （worktree 的 index）
-    " 4. bufname 是 'index' 且 buftype 是 'nowrite'
-    let l:fullpath = fnamemodify(l:bufname, ':p')
-    if l:bufname =~# '^\(fugitive\|gitcommit\)://' ||
-     \ l:fullpath =~# '\.git/\(index\|COMMIT_EDITMSG\)' ||
-     \ l:fullpath =~# '\.git/worktrees/' ||
-     \ (l:bufname ==# 'index' && l:buftype ==# 'nowrite')
-        return 0
-    endif
-
-    " Ignore other temporary buffers with buftype set.
-    if empty(l:buftype) == 0
         return 1
     endif
 
